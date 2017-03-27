@@ -12,7 +12,13 @@ class Console
 {
 
     /** @var array */
-    private $args;
+    private $args = [];
+
+    /** @var array */
+    protected $expectedArgs = [];
+
+    /** @var array */
+    private $parsedOptions = [];
 
     /**
      * Console constructor.
@@ -43,7 +49,7 @@ class Console
             throw new \InvalidArgumentException('No option with name "' . $opt . '" found.');
 
         } catch (\LogicException $e) {
-            echo $e->getMessage() . "\n";
+            self::write($e->getMessage());
         }
 
         return null;
@@ -68,10 +74,26 @@ class Console
             }
 
         } catch (\LogicException $e) {
-            echo $e->getMessage() . "\n";
+            self::write($e->getMessage());
         }
 
         return false;
+    }
+
+    /**
+     * @return string
+     */
+    public function getController()
+    {
+        return $this->getTarget('controller');
+    }
+
+    /**
+     * @return string
+     */
+    public function getAction()
+    {
+        return $this->getTarget('action');
     }
 
     /**
@@ -79,9 +101,45 @@ class Console
      *
      * @param string $message
      */
-    public function write(string $message)
+    public static function write(string $message)
     {
         print $message . "\n";
+    }
+
+    /**
+     * @param string $type
+     * @return string
+     */
+    private function getTarget($type = 'controller')
+    {
+        try {
+
+            $result = $this->parseOptions();
+
+            if (empty($result['target'])) {
+                throw new \LogicException('No target given.');
+            }
+
+            $target = explode(':', $result['target']);
+
+            switch ($type) {
+
+                case 'controller':
+                    return $target[0];
+
+                case 'action':
+                    return $target[1];
+
+                default:
+                    return '';
+
+            }
+
+        } catch (\LogicException $e) {
+            self::write($e->getMessage());
+        }
+
+        return '';
     }
 
     /**
@@ -91,33 +149,57 @@ class Console
      */
     private function parseOptions()
     {
-        $result  = [];
+        if (!empty($this->parsedOptions))
+            return $this->parsedOptions;
+
         $matches = [];
         $args    = array_splice($this->args, 1, count($this->args));
         $args    = implode(' ', $args);
+        $regex   = '(?<target>[\w:\w]+)|\-(?<opt>[a-zA-Z]+)[\s|=](?<value>[\w]+)|--(?<longOpt>[\w]+)';
 
-        preg_match_all('/\-(?<opt>[a-zA-Z]+)[\s|=](?<value>[a-zA-Z0-9]+)|--(?<longOpt>[a-zA-Z0-9]+)/', $args, $matches);
+        preg_match_all('/' . $regex . '/', $args, $matches);
 
+        $target   = self::filterEmpty($matches['target']);
         $opts     = self::filterEmpty($matches['opt']);
         $values   = self::filterEmpty($matches['value']);
         $longOpts = self::filterEmpty($matches['longOpt']);
 
-        if (count($opts) !== count($values)) {
+        $result = $this->sanitizeOptions($target, $opts, $values, $longOpts);
+
+        $this->parsedOptions = $result;
+
+        return $result;
+    }
+
+    /**
+     * Sanitize given options
+     *
+     * @param array $target
+     * @param array $opts
+     * @param array $values
+     * @param array $longOpts
+     * @return array
+     */
+    private function sanitizeOptions($target, $opts, $values, $longOpts)
+    {
+        $result = [];
+
+        if (!empty($target[0]))
+            $result['target'] = $target[0];
+
+        if (count($opts) !== count($values))
             throw new \LogicException('Option and value count doesn\'t match.');
-        }
 
         for ($i=0; $i<count($opts); $i++) {
 
-            if (empty($opts[$i]) || empty($values[$i])) {
+            if (empty($opts[$i]) || empty($values[$i]))
                 throw new \LogicException('Option or value mismatch. Please check your arguments.');
-            }
 
             $result[$opts[$i]] = $values[$i];
         }
 
-        foreach ($longOpts as $longOpt) {
+        foreach ($longOpts as $longOpt)
             $result['longOpts'][] = $longOpt;
-        }
 
         return $result;
     }
@@ -130,9 +212,11 @@ class Console
      */
     private static function filterEmpty(array $arr)
     {
-        return array_filter($arr, function($value) {
+        $result = array_filter($arr, function($value) {
             return !empty($value);
         });
+
+        return array_values($result);
     }
 
 }
