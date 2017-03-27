@@ -1,0 +1,23 @@
+{
+    "name": "floknapp/console-cli",
+    "description": "A simple console interface for php-cli",
+    "type": "library",
+    "require-dev": {
+        "phpunit/phpunit": "^6.0"
+    },
+    "license": "MIT License",
+    "authors": [
+        {
+            "name": "Flo Knapp",
+            "email": "office@florianknapp.de"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "ConsoleCli\\": "src/",
+            "Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "require": {}
+}
